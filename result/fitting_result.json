@@ -1,0 +1,6 @@
+{
+ "E": 100.0,
+ "nu": 0.05,
+ "contact_stiffness": 250.0,
+ "shearing_stiffness": 250.0
+}
