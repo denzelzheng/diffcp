@@ -13,10 +13,6 @@ time0 = time.time()
 parameters_learning(True, True, 35)
 time1 = time.time()
 
-garment_nu[None] = initial_garment_nu
-contact_stiffness[None] = initial_contact_stiffness
-shearing_stiffness[None] = initial_shearing_stiffness
-
 result_file = open(result_file_path)
 result = json.load(result_file)
 result['E'] = garment_E[None]
