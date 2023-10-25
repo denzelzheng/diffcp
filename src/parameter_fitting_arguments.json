@@ -24,9 +24,7 @@
             "E": 1000,
             "nu": 0.45,
             "contact_stiffness": 5000,
-            "shearing_stiffness": 1000,
-            "internal_friction_angle": 360,
-            "damping": 0.99999
+            "shearing_stiffness": 1000
         },
         "constitutive_parameter_lower_bounds": {
             "E": 10,
@@ -36,10 +34,16 @@
             "internal_friction_angle": 1,
             "damping": 0.1
         },
+        "initial_constitutive_parameters": {
+            "E": 100,
+            "nu": 0.1,
+            "contact_stiffness": 100,
+            "shearing_stiffness": 100
+        },
         "garment_mass": 0.5
     },
-    "data_dir": "/../../data/",
-    "result_dir": "/../../result/",
+    "data_dir": "/../data/",
+    "result_dir": "/../result/",
     "base_to_azure": {
         "translation": {
             "x": 1.5842527110921591,
