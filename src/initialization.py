@@ -97,7 +97,6 @@ if initial_frame > end_frame:
 print("initial_frame is", initial_frame)
 print("end_frame is", end_frame)
 
-
 grasp_seq = grasp_seq[initial_frame:end_frame + 1]
 
 frame_range = end_frame - initial_frame + 1
