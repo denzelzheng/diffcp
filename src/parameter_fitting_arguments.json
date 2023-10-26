@@ -43,5 +43,6 @@
         "garment_mass": 0.5
     },
     "data_dir": "/../data/",
-    "result_dir": "/../result/"
+    "result_dir": "/../result/",
+    "n_pose_estimation_output": 35
 }

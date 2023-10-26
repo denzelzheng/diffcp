@@ -1,24 +1,13 @@
-from src.taichi_variable_definition import *
-
-@ti.kernel
-def clear_distances():
-    for p in range(n_vertex_particles):
-        for q in range(n_target_particles):
-            distances[p, q] = 0
+from src.taichi_variable_definition_without_grad import *
 
 @ti.kernel
 def clear_grid():
     for i, j, k in grid_m:
         grid_v[i, j, k] = [0, 0, 0]
         grid_m[i, j, k] = 0
-        grid_v.grad[i, j, k] = [0, 0, 0]
-        grid_m.grad[i, j, k] = 0
-        grid_v_out.grad[i, j, k] = [0, 0, 0]
-
 
 def zero_vec():
     return [0.0, 0.0, 0.0]
-
 
 def zero_matrix():
     return [zero_vec(), zero_vec(), zero_vec()]
@@ -26,17 +15,8 @@ def zero_matrix():
 @ti.kernel
 def compute_inplane_F_tmp(f: ti.i32):
     for p in range(0, n_quadrature_particles):
-        Q, R = QR_decomposition_3d(quadrature_F[f, p])
+        Q, R = QR_decomposition_3d(quadrature_F[p])
         inplane_F_tmp[p] = ti.Matrix([[R[0, 0], R[0, 1]], [R[1, 0], R[1, 1]]])
-
-@ti.kernel
-def clear_inplane_SVD_grad():
-    zero = ti.Matrix.zero(real, 2, 2)
-    for i in range(0, n_quadrature_particles):
-        inplane_U.grad[i] = zero
-        inplane_sig.grad[i] = zero
-        inplane_V.grad[i] = zero
-        inplane_F_tmp.grad[i] = zero
 
 @ti.kernel
 def inplane_svd():
@@ -137,12 +117,12 @@ def QR_decomposition_3d(F_mat):
     return Q, R
 
 @ti.kernel
-def p2g(f: ti.i32, grad_update: ti.i32):
+def p2g(f: ti.i32):
     for p in range(0, n_cube_particles):
-        base = ti.cast(cube_x[f, p] * inv_dx - 0.5, ti.i32)
-        fx = cube_x[f, p] * inv_dx - ti.cast(base, ti.i32)
+        base = ti.cast(cube_x[p] * inv_dx - 0.5, ti.i32)
+        fx = cube_x[p] * inv_dx - ti.cast(base, ti.i32)
         w = [0.5 * (1.5 - fx) ** 2, 0.75 - (fx - 1) ** 2, 0.5 * (fx - 0.5) ** 2]
-        affine = cube_p_mass * cube_C[f, p]
+        affine = cube_p_mass * cube_C[p]
         for i in ti.static(range(3)):
             for j in ti.static(range(3)):
                 for k in ti.static(range(3)):
@@ -154,13 +134,13 @@ def p2g(f: ti.i32, grad_update: ti.i32):
                     ti.atomic_add(grid_m[base + offset], weight * cube_p_mass)
 
     for p in range(0, n_operator_particles):
-        base = ti.cast(operator_x[f, p] * inv_dx - 0.5, ti.i32)
-        fx = operator_x[f, p] * inv_dx - ti.cast(base, ti.i32)
+        base = ti.cast(operator_x[p] * inv_dx - 0.5, ti.i32)
+        fx = operator_x[p] * inv_dx - ti.cast(base, ti.i32)
         w = [0.5 * (1.5 - fx) ** 2, 0.75 - (fx - 1) ** 2, 0.5 * (fx - 0.5) ** 2]
-        affine = operator_p_mass * operator_C[f, p]
+        affine = operator_p_mass * operator_C[p]
 
         t = f * dt
-        frame = int(t / operator_update_interval) + int(grad_update_interval / operator_update_interval) * grad_update
+        frame = int(t / operator_update_interval)
         grasp_id = int(p / grasper_group_size)
         operator_temp_v = ti.Vector([0.0, 0.0, 0.0])
         if frame + 1 < frame_range:
@@ -176,12 +156,12 @@ def p2g(f: ti.i32, grad_update: ti.i32):
                     ti.atomic_add(grid_m[base + offset], weight * operator_p_mass)
 
     for p in range(0, n_vertex_particles):
-        base = ti.cast(vertex_x[f, p] * inv_dx - 0.5, ti.i32)
-        fx = vertex_x[f, p] * inv_dx - ti.cast(base, ti.i32)
+        base = ti.cast(vertex_x[p] * inv_dx - 0.5, ti.i32)
+        fx = vertex_x[p] * inv_dx - ti.cast(base, ti.i32)
         w = [0.5 * (1.5 - fx) ** 2, 0.75 - (fx - 1) ** 2, 0.5 * (fx - 0.5) ** 2]
-        affine = vertex_p_mass * vertex_C[f, p]
-        temp_v = vertex_v[f, p]
-        temp_v = vertex_v[f, p] + [0, dt * scene_scaling * gravity, 0]
+        affine = vertex_p_mass * vertex_C[p]
+        temp_v = vertex_v[p]
+        temp_v = vertex_v[p] + [0, dt * scene_scaling * gravity, 0]
         for i in ti.static(range(3)):
             for j in ti.static(range(3)):
                 for k in ti.static(range(3)):
@@ -193,27 +173,27 @@ def p2g(f: ti.i32, grad_update: ti.i32):
                     ti.atomic_add(grid_m[base + offset], weight * vertex_p_mass)
 
     for p in range(0, n_quadrature_particles):
-        base = ti.cast(quadrature_x[f, p] * inv_dx - 0.5, ti.i32)
-        fx = quadrature_x[f, p] * inv_dx - ti.cast(base, ti.i32)
+        base = ti.cast(quadrature_x[p] * inv_dx - 0.5, ti.i32)
+        fx = quadrature_x[p] * inv_dx - ti.cast(base, ti.i32)
         w = [0.5 * (1.5 - fx) ** 2, 0.75 - (fx - 1) ** 2, 0.5 * (fx - 0.5) ** 2]
         x_jacobian_w = ti.Matrix.rows([fx - 1.5, 2 * (1.0 - fx), fx - 0.5]) * inv_dx
-        affine = quadrature_C[f, p] * quadrature_p_mass
-        temp_v = quadrature_v[f, p]
+        affine = quadrature_C[p] * quadrature_p_mass
+        temp_v = quadrature_v[p]
 
         v1 = lagrangian_mesh_element[p][0]
         v2 = lagrangian_mesh_element[p][1]
         v3 = lagrangian_mesh_element[p][2]
-        v1_base = ti.cast(vertex_x[f, v1] * inv_dx - 0.5, ti.i32)
-        v1_fx = vertex_x[f, v1] * inv_dx - ti.cast(v1_base, ti.i32)
+        v1_base = ti.cast(vertex_x[v1] * inv_dx - 0.5, ti.i32)
+        v1_fx = vertex_x[v1] * inv_dx - ti.cast(v1_base, ti.i32)
         v1_w = [0.5 * (1.5 - v1_fx) ** 2, 0.75 - (v1_fx - 1) ** 2, 0.5 * (v1_fx - 0.5) ** 2]
-        v2_base = ti.cast(vertex_x[f, v2] * inv_dx - 0.5, ti.i32)
-        v2_fx = vertex_x[f, v2] * inv_dx - ti.cast(v2_base, ti.i32)
+        v2_base = ti.cast(vertex_x[v2] * inv_dx - 0.5, ti.i32)
+        v2_fx = vertex_x[v2] * inv_dx - ti.cast(v2_base, ti.i32)
         v2_w = [0.5 * (1.5 - v2_fx) ** 2, 0.75 - (v2_fx - 1) ** 2, 0.5 * (v2_fx - 0.5) ** 2]
-        v3_base = ti.cast(vertex_x[f, v3] * inv_dx - 0.5, ti.i32)
-        v3_fx = vertex_x[f, v3] * inv_dx - ti.cast(v3_base, ti.i32)
+        v3_base = ti.cast(vertex_x[v3] * inv_dx - 0.5, ti.i32)
+        v3_fx = vertex_x[v3] * inv_dx - ti.cast(v3_base, ti.i32)
         v3_w = [0.5 * (1.5 - v3_fx) ** 2, 0.75 - (v3_fx - 1) ** 2, 0.5 * (v3_fx - 0.5) ** 2]
 
-        Q, R = QR_decomposition_3d(quadrature_F[f, p])
+        Q, R = QR_decomposition_3d(quadrature_F[p])
         A = ti.Matrix(zero_matrix())
         A[0, 0] = shearing_stiffness[None] * R[0, 2] * R[0, 2] + garment_E[None] * R[0, 0] * (R[0, 0] - 1)
         A[0, 0] = shearing_stiffness[None] * R[0, 2] * R[0, 2]
@@ -242,7 +222,7 @@ def p2g(f: ti.i32, grad_update: ti.i32):
                                       [0, 0, 0]]) + Q @ A @ R.inverse().transpose()
 
         quadrature_P_col3 = ti.Vector([quadrature_P[0, 2], quadrature_P[1, 2], quadrature_P[2, 2]])
-        direction = quadrature_d[f, p]
+        direction = quadrature_d[p]
         direction_col3 = ti.Vector([direction[0, 2], direction[1, 2], direction[2, 2]])
         initial_d_inv = initial_quadrature_d_inv[p]
 
@@ -271,7 +251,6 @@ def p2g(f: ti.i32, grad_update: ti.i32):
                                   ((-1) * quadrature_p_vol * v2_weight * (quadrature_P @ (initial_d_inv_raw1))) * dt)
                     ti.atomic_add(grid_v[v3_base + offset],
                                   ((-1) * quadrature_p_vol * v3_weight * (quadrature_P @ (initial_d_inv_raw2))) * dt)
-
 
 @ti.kernel
 def grid_op(f: ti.i32):
@@ -307,8 +286,8 @@ def grid_op(f: ti.i32):
 def g2p(f: ti.i32):
 
     for p in range(n_cube_particles):
-        base = ti.cast(cube_x[f, p] * inv_dx - 0.5, ti.i32)
-        fx = cube_x[f, p] * inv_dx - ti.cast(base, real)
+        base = ti.cast(cube_x[p] * inv_dx - 0.5, ti.i32)
+        fx = cube_x[p] * inv_dx - ti.cast(base, real)
         w = [0.5 * (1.5 - fx) ** 2, 0.75 - (fx - 1.0) ** 2, 0.5 * (fx - 0.5) ** 2]
         new_cube_v = ti.Vector([0.0, 0.0, 0.0])
         new_cube_C = ti.Matrix([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
@@ -322,13 +301,13 @@ def g2p(f: ti.i32):
                     new_cube_v += weight * g_v
                     new_cube_C += 4 * weight * g_v.outer_product(dpos) * inv_dx
 
-        cube_v[f + 1, p] = new_cube_v
-        cube_x[f + 1, p] = cube_x[f, p] + dt * cube_v[f + 1, p]
-        cube_C[f + 1, p] = new_cube_C
+        cube_v[p] = new_cube_v
+        cube_x[p] = cube_x[p] + dt * cube_v[p]
+        cube_C[p] = new_cube_C
 
     for p in range(n_operator_particles):
-        base = ti.cast(operator_x[f, p] * inv_dx - 0.5, ti.i32)
-        fx = operator_x[f, p] * inv_dx - ti.cast(base, real)
+        base = ti.cast(operator_x[p] * inv_dx - 0.5, ti.i32)
+        fx = operator_x[p] * inv_dx - ti.cast(base, real)
         w = [0.5 * (1.5 - fx) ** 2, 0.75 - (fx - 1.0) ** 2, 0.5 * (fx - 0.5) ** 2]
         new_operator_v = ti.Vector([0.0, 0.0, 0.0])
         new_operator_C = ti.Matrix([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
@@ -342,13 +321,13 @@ def g2p(f: ti.i32):
                     new_operator_v += weight * g_v
                     new_operator_C += 4 * weight * g_v.outer_product(dpos) * inv_dx
 
-        operator_v[f + 1, p] = new_operator_v
-        operator_x[f + 1, p] = operator_x[f, p] + dt * operator_v[f + 1, p]
-        operator_C[f + 1, p] = new_operator_C
+        operator_v[p] = new_operator_v
+        operator_x[p] = operator_x[p] + dt * operator_v[p]
+        operator_C[p] = new_operator_C
 
     for p in range(n_vertex_particles):
-        base = ti.cast(vertex_x[f, p] * inv_dx - 0.5, ti.i32)
-        fx = vertex_x[f, p] * inv_dx - ti.cast(base, real)
+        base = ti.cast(vertex_x[p] * inv_dx - 0.5, ti.i32)
+        fx = vertex_x[p] * inv_dx - ti.cast(base, real)
         w = [0.5 * (1.5 - fx) ** 2, 0.75 - (fx - 1.0) ** 2, 0.5 * (fx - 0.5) ** 2]
         new_vertex_v = ti.Vector([0.0, 0.0, 0.0])
         new_vertex_C = ti.Matrix([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
@@ -362,13 +341,13 @@ def g2p(f: ti.i32):
                     new_vertex_v += weight * g_v
                     new_vertex_C += 4 * weight * g_v.outer_product(dpos) * inv_dx
 
-        vertex_v[f + 1, p] = new_vertex_v
-        vertex_x[f + 1, p] = vertex_x[f, p] + dt * vertex_v[f + 1, p]
-        vertex_C[f + 1, p] = new_vertex_C
+        vertex_v[p] = new_vertex_v
+        vertex_x[p] = vertex_x[p] + dt * vertex_v[p]
+        vertex_C[p] = new_vertex_C
 
     for p in range(n_quadrature_particles):
-        base = ti.cast(quadrature_x[f, p] * inv_dx - 0.5, ti.i32)
-        fx = quadrature_x[f, p] * inv_dx - ti.cast(base, real)
+        base = ti.cast(quadrature_x[p] * inv_dx - 0.5, ti.i32)
+        fx = quadrature_x[p] * inv_dx - ti.cast(base, real)
         w = [0.5 * (1.5 - fx) ** 2, 0.75 - (fx - 1.0) ** 2, 0.5 * (fx - 0.5) ** 2]
         new_quadrature_C = ti.Matrix([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
 
@@ -382,7 +361,7 @@ def g2p(f: ti.i32):
 
         C_skew_part = 0.5 * (new_quadrature_C - new_quadrature_C.transpose())
         C_sym_part = 0.5 * (new_quadrature_C + new_quadrature_C.transpose())
-        quadrature_C[f + 1, p] = C_skew_part + (1 - 0.95) * C_sym_part
+        quadrature_C[p] = C_skew_part + (1 - 0.95) * C_sym_part
 
 
 @ti.kernel
@@ -391,18 +370,22 @@ def update_particle_state(f: ti.i32):
         v1 = lagrangian_mesh_element[p][0]
         v2 = lagrangian_mesh_element[p][1]
         v3 = lagrangian_mesh_element[p][2]
-        quadrature_v[f + 1, p] = (1 / 3) * (vertex_v[f + 1, v1] + vertex_v[f + 1, v2] + vertex_v[f + 1, v3])
-        quadrature_x[f + 1, p] = (1 / 3) * (vertex_x[f + 1, v1] + vertex_x[f + 1, v2] + vertex_x[f + 1, v3])
+        quadrature_v[p] = (1 / 3) * (vertex_v[v1] + vertex_v[v2] + vertex_v[v3])
+        quadrature_x[p] = (1 / 3) * (vertex_x[v1] + vertex_x[v2] + vertex_x[v3])
 
-        new_quadrature_d_col1 = vertex_x[f + 1, v2] - vertex_x[f + 1, v1]
-        new_quadrature_d_col2 = vertex_x[f + 1, v3] - vertex_x[f + 1, v1]
+        new_quadrature_d_col1 = vertex_x[v2] - vertex_x[v1]
+        new_quadrature_d_col2 = vertex_x[v3] - vertex_x[v1]
+
         new_quadrature_d_col3 = ti.Vector(
-            [quadrature_d[f, p][0, 2], quadrature_d[f, p][1, 2], quadrature_d[f, p][2, 2]])
-        new_quadrature_d_col3 += (dt * quadrature_C[f + 1, p] + 0.5 * dt * dt * quadrature_C[f + 1, p] @ quadrature_C[
-            f + 1, p]) @ new_quadrature_d_col3
+            [quadrature_d[p][0, 2], quadrature_d[p][1, 2], quadrature_d[p][2, 2]])
+        new_quadrature_d_col3 += (dt * quadrature_C[p] + 0.5 * dt * dt * quadrature_C[p] @ quadrature_C[p]) @ new_quadrature_d_col3
+
+        # normal_quadrature_d_col1 = new_quadrature_d_col1 / new_quadrature_d_col1.norm(1e-6)
+        # normal_quadrature_d_col2 = new_quadrature_d_col2 / new_quadrature_d_col2.norm(1e-6)
+        # quadrature_d_col3 = ti.Matrix.cross(normal_quadrature_d_col1, normal_quadrature_d_col2)
+        # new_quadrature_d_col3 = quadrature_d_col3 / quadrature_d_col3.norm(1e-6)
 
         new_quadrature_d = ti.Matrix.cols([new_quadrature_d_col1, new_quadrature_d_col2, new_quadrature_d_col3])
-
         initial_d_inv = initial_quadrature_d_inv[p]
 
         # return mapping
@@ -428,8 +411,8 @@ def update_particle_state(f: ti.i32):
                 return_mapping_scale = cf * ((R[2, 2] - 1) ** 2) / (shearing_stiffness_over_k * ti.sqrt(shear))
                 R[0, 2] = R[0, 2] * return_mapping_scale
                 R[1, 2] = R[1, 2] * return_mapping_scale
-        quadrature_d[f + 1, p] = new_F @ initial_d_inv.inverse()
-        quadrature_F[f + 1, p] = new_F
+        quadrature_d[p] = new_F @ initial_d_inv.inverse()
+        quadrature_F[p] = new_F
 
 def initialize_objects():
     grasp_point_model = operator_model_without_position + grasp_point_pos[0][0]
@@ -443,31 +426,28 @@ def initialize_objects():
     initial_cube_x.from_numpy(cube_model)
     initialize_ti_field()
 
-
-
-
 @ti.kernel
 def initialize_ti_field():
     for i in range(n_cube_particles):
-        cube_x[0, i] = initial_cube_x[i]
-        cube_v[0, i] = [0, 0, 0]
-        cube_C[0, i] = ti.Matrix([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
+        cube_x[i] = initial_cube_x[i]
+        cube_v[i] = [0, 0, 0]
+        cube_C[i] = ti.Matrix([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
     for i in range(n_operator_particles):
-        operator_x[0, i] = initial_operator_x[i]
-        operator_v[0, i] = [0, 0, 0]
-        operator_C[0, i] = ti.Matrix([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
+        operator_x[i] = initial_operator_x[i]
+        operator_v[i] = [0, 0, 0]
+        operator_C[i] = ti.Matrix([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
     for i in range(n_vertex_particles):
-        vertex_x[0, i] = initial_vertex_x[i]
-        vertex_v[0, i] = [0, 0, 0]
-        vertex_C[0, i] = ti.Matrix([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
+        vertex_x[i] = initial_vertex_x[i]
+        vertex_v[i] = [0, 0, 0]
+        vertex_C[i] = ti.Matrix([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
     for i in range(n_quadrature_particles):
         index0 = lagrangian_mesh_element[i][0]
         index1 = lagrangian_mesh_element[i][1]
         index2 = lagrangian_mesh_element[i][2]
-        quadrature_x[0, i] = ((initial_vertex_x[index0] + initial_vertex_x[index1] + initial_vertex_x[index2]) / 3)
-        quadrature_v[0, i] = [0, 0, 0]
-        quadrature_C[0, i] = ti.Matrix([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
-        quadrature_F[0, i] = ti.Matrix([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+        quadrature_x[i] = ((initial_vertex_x[index0] + initial_vertex_x[index1] + initial_vertex_x[index2]) / 3)
+        quadrature_v[i] = [0, 0, 0]
+        quadrature_C[i] = ti.Matrix([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
+        quadrature_F[i] = ti.Matrix([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
         quadrature_d_col1 = (initial_vertex_x[index1] - initial_vertex_x[index0])
         quadrature_d_col2 = (initial_vertex_x[index2] - initial_vertex_x[index0])
         normal_quadrature_d_col1 = quadrature_d_col1 / quadrature_d_col1.norm(1e-6)
@@ -475,34 +455,14 @@ def initialize_ti_field():
         quadrature_d_col3 = ti.Matrix.cross(normal_quadrature_d_col1, normal_quadrature_d_col2)
         normal_quadrature_d_col3 = quadrature_d_col3 / quadrature_d_col3.norm(1e-6)
         initial_d = ti.Matrix.cols([quadrature_d_col1, quadrature_d_col2, normal_quadrature_d_col3])
-        quadrature_d[0, i] = initial_d
+        quadrature_d[i] = initial_d
         initial_quadrature_d_inv[i] = initial_d.inverse()
 
-
-@ti.ad.grad_replaced
-def forward(s, grad_update):
+def forward(s):
     clear_grid()
     compute_inplane_F_tmp(s)
     inplane_svd()
-    p2g(s, grad_update)
+    p2g(s)
     grid_op(s)
     g2p(s)
     update_particle_state(s)
-
-@ti.ad.grad_for(forward)
-def backward(s, grad_update):
-    clear_grid()
-    clear_inplane_SVD_grad()
-    compute_inplane_F_tmp(s)
-    inplane_svd()
-    p2g(s, grad_update)
-    grid_op(s)
-    g2p(s)
-    update_particle_state(s)
-    update_particle_state.grad(s)
-
-    g2p.grad(s)
-    grid_op.grad(s)
-    p2g.grad(s, grad_update)
-    inplane_svd_grad()
-    compute_inplane_F_tmp.grad(s)
