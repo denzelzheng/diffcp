@@ -24,7 +24,7 @@ gravity = -9.81
 print()
 
 current_dir = os.path.abspath(os.path.dirname(__file__))
-arguments_file = open(current_dir + '/parameter_fitting_arguments.json')
+arguments_file = open(current_dir + '/simulation_arguments.json')
 arguments = json.load(arguments_file)
 operator_parameters = arguments['operator_parameters']
 operator_update_interval = arguments['operator_update_interval']
