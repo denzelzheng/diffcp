@@ -14,7 +14,6 @@ def compute_loss(f: ti.i32):
                 min_distance = distances[p, q]
         loss[None] += min_distance / n_target_particles
 
-
 def compute_grad():
     losses = []
     garment_E_grad, garment_nu_grad, contact_stiffness_grad, shearing_stiffness_grad = [], [], [], []

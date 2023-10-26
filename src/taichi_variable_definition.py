@@ -19,12 +19,11 @@ operator_C = mat()
 ti.root.dense(ti.ijk, n_grid).place(grid_v_out)
 ti.root.dense(ti.k, max_steps).dense(ti.l, n_operator_particles).place(operator_x, operator_v, operator_C)
 
-
 cube_x, cube_v = vec(), vec()
 cube_C = mat()
 ti.root.dense(ti.k, max_steps).dense(ti.l, n_cube_particles).place(cube_x, cube_v, cube_C)
 grasp_tracking_seq = vec()
-ti.root.dense(ti.k, frame_range).dense(ti.l, grasp_point_num).place(grasp_tracking_seq)
+ti.root.dense(ti.k, n_actions).dense(ti.l, grasp_point_num).place(grasp_tracking_seq)
 
 target_pos = ti.Vector.field(3, dtype=ti.f32, shape=n_target_particles)
 lagrangian_mesh_element = ti.Vector.field(3, dtype=ti.i32, shape=n_quadrature_particles)
@@ -64,4 +63,4 @@ def parameter_verbose_mode():
     print("cube_p_mass", cube_p_mass)
     print("operator mass is", operator_p_mass * n_operator_particles)
     print("soft_body_model_vertices:", soft_body_model_vertices.shape)
-    print("There are", frame_range, "frames will be used.")
+    print("There are", n_actions, "frames will be used.")

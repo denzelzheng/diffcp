@@ -88,10 +88,10 @@ random_points[:, 1] += mark_pos[1] - rigid_cube_side_length/2
 random_points[:, 2] += mark_pos[2]
 cube_model = random_points
 
-frame_range = grasp_seq.shape[0]
-print("There are", frame_range, "frames in data")
-if end_frame >= frame_range or end_frame == -1:
-    end_frame = frame_range - 1
+n_actions = grasp_seq.shape[0]
+print("There are", n_actions, "frames in data")
+if end_frame >= n_actions or end_frame == -1:
+    end_frame = n_actions - 1
 if initial_frame > end_frame:
     initial_frame = end_frame - 1
 print("initial_frame is", initial_frame)
@@ -99,7 +99,7 @@ print("end_frame is", end_frame)
 
 grasp_seq = grasp_seq[initial_frame:end_frame + 1]
 
-frame_range = end_frame - initial_frame + 1
+n_actions = end_frame - initial_frame + 1
 grasp_point_num = grasp_seq[0].shape[0]
 soft_body_mesh = o3d.io.read_triangle_mesh(cloth_file)
 
@@ -204,4 +204,4 @@ def parameter_verbose_mode():
     print("cube_p_mass", cube_p_mass)
     print("operator mass is", operator_p_mass * n_operator_particles)
     print("soft_body_model_vertices:", soft_body_model_vertices.shape)
-    print("There are", frame_range, "frames will be used.")
+    print("There are", n_actions, "frames will be used.")

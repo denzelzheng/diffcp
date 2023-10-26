@@ -19,7 +19,7 @@ cube_v = ti.Vector.field(3, dtype=ti.f32, shape=n_cube_particles)
 cube_C = ti.Matrix.field(3, 3, dtype=real, shape=n_cube_particles)
 
 grasp_tracking_seq = vec()
-ti.root.dense(ti.k, frame_range).dense(ti.l, grasp_point_num).place(grasp_tracking_seq)
+ti.root.dense(ti.k, n_actions).dense(ti.l, grasp_point_num).place(grasp_tracking_seq)
 
 target_pos = ti.Vector.field(3, dtype=ti.f32, shape=n_target_particles)
 lagrangian_mesh_element = ti.Vector.field(3, dtype=ti.i32, shape=n_quadrature_particles)

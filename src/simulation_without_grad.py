@@ -143,7 +143,7 @@ def p2g(f: ti.i32):
         frame = int(t / operator_update_interval)
         grasp_id = int(p / grasper_group_size)
         operator_temp_v = ti.Vector([0.0, 0.0, 0.0])
-        if frame + 1 < frame_range:
+        if frame + 1 < n_actions:
             operator_temp_v = (grasp_tracking_seq[frame + 1, grasp_id] - grasp_tracking_seq[frame, grasp_id]) / operator_update_interval
         for i in ti.static(range(3)):
             for j in ti.static(range(3)):

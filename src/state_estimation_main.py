@@ -8,4 +8,4 @@ shearing_stiffness[None] = fit_parameter['shearing_stiffness']
 print("Initializing objects...")
 initialize_objects()
 print("Initialized objects")
-animation(operator_update_interval * (frame_range - 1))
+animation(operator_update_interval * (n_actions - 1))

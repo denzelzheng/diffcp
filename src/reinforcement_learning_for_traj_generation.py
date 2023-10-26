@@ -1,31 +1,15 @@
 from src.simulation_without_grad import *
+from src.trajectory_generation_functions_and_variables import *
 import gym
 from stable_baselines3 import SAC
 from gym import spaces
 from stable_baselines3.common.callbacks import BaseCallback
-from scipy.interpolate import interp1d
-import scipy.spatial
 
 n_step_per_ep = 31
 n_ep = 500
 traj_length = 31
 total_time = 0.3 / n_step_per_ep
 grasp_seq = np.zeros((traj_length, 1, 3))
-
-def compute_chamfer_distance(array1, array2):
-    chamfer_distance = scipy.spatial.distance.cdist(array1, array2)
-    chamfer_distance = np.min(chamfer_distance, axis=1)
-    chamfer_distance = np.mean(chamfer_distance)
-    return chamfer_distance
-
-def interpolate_trajectory(trajectory, total_length):
-
-    original_length = len(trajectory)
-    old_indices = np.linspace(0, original_length-1, original_length)
-    new_indices = np.linspace(0, original_length-1, total_length)
-    interp_funcs = [interp1d(old_indices, trajectory[:, i], kind='linear') for i in range(3)]
-    new_trajectory = np.vstack([f(new_indices) for f in interp_funcs]).T
-    return new_trajectory
 
 class CustomEnv(gym.Env):
     def __init__(self, n):
@@ -134,12 +118,11 @@ if __name__ == "__main__":
         os.makedirs(tmp_dir)
     tmp_vertices_file = tmp_dir + "/tmp_vertices.npy"
     initial_vertices_file = tmp_dir + "/initial_vertices.npy"
-    target = np.load(data_dir + '/target_point_cloud.npy')
     seeds = list(np.random.randint(10000, size=5))
     chamfer_distances_for_all_ep = []
     for seed in seeds:
         print(f"Running experiment with seed {seed}")
         _, _, chamfer_distance = run_experiment(int(seed))
         chamfer_distances_for_all_ep.append(chamfer_distance)
-    np.save(result_dir + "/chamfer_distances.npy", np.array(chamfer_distances_for_all_ep))
+    np.save(result_dir + "/RL_chamfer_distances.npy", np.array(chamfer_distances_for_all_ep))
 
